@@ -1,0 +1,180 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<link rel="stylesheet" href="bootstrap/css/bootstrap.css" />
+	<link rel="stylesheet" href="bootstrap/css/bootstrap-theme.css" />
+
+	<script src="canvasjs/canvasjs.min.js"></script>
+	<script src="jquery/jquery-2.2.3.js"></script>
+	<script src="mustache/mustache.js"></script>
+	<script src="mustache/mustache-wax.min.js"></script>
+	<script type="text/javascript">
+
+		/** Deposit date. Month is 0 based! **/
+		var startDate = new Date(2016, 3, 9);
+
+		/** Amount deposited **/
+		var depAmount = 790.00;
+
+		/** Interest rate **/
+		var intRate = 0.20;
+
+		/** Calculate today's balance **/
+		var todayBalance = balanceToday(startDate, depAmount, intRate);
+
+		/** Add a addDays prototype method to Date object **/
+		Date.prototype.addDays = function(days)
+		{
+		    var dat = new Date(this.valueOf());
+		    dat.setTime(dat.getTime() + days*24*60*60*1000);
+		    return dat;
+		}
+
+		function roundToTwo(num) {    
+    	return +(Math.round(num + "e+2")  + "e-2");
+		}
+
+		/** calculate daily balance for x days from start date with starting balance and interest rate **/
+		function dailyBalance(startDate, depAmount, intRate, days) {
+			var balances = [];
+			var runningBalance = depAmount;
+			var runningDate = startDate;
+
+			for (var i = 0; i < days; i++) {
+				//add today's date and balance to the array.
+				var datapoint = {x:runningDate, y:roundToTwo(runningBalance)};
+				balances.push(datapoint);
+
+				//calculate the next day's date and balance
+				runningDate = runningDate.addDays(1);
+				runningBalance += runningBalance * (intRate / 365.00);
+			}
+			//console.log(balances);
+			return balances;
+		}
+
+		function daysSince(historicalDate) {
+			return Math.round((Date.now() - startDate.getTime()) / (24*60*60*1000));
+		}
+
+		function balanceToday(startDate, depAmount, intRate) {
+			//calc number of days till now
+			var days = daysSince(startDate);
+			var runningBalance = depAmount;
+			for (var i = 0; i < days; i++) {
+				runningBalance += runningBalance * (intRate / 365.00);
+			}
+			return runningBalance;
+		}
+
+		Mustache.Formatters = {
+        "uppercase": function (str) {
+            return str.toUpperCase();
+        },
+        "lpad": function (str, num, sep) {
+            sep = sep || " ";
+            str = "" + str;
+            var filler = "";
+            while ((filler.length + str.length) < num) { filler += sep };
+            return (filler + str).slice(-num);
+        },
+        "date": function (dt) {
+            var lpad  = Mustache.Formatters.lpad, 
+                day   = lpad(dt.getDate(), 2, "0"),
+                month = lpad(dt.getMonth()+1, 2, "0");
+            return  day + "/" + month + "/" + dt.getFullYear();
+        }
+    };
+
+		function renderHTML() {
+			var template = $('#startbalance').html();
+		  var rendered = Mustache.render(template, {theStartBalance: depAmount, theStartDate: startDate});
+		  $('#target_startbalance').html(rendered);
+			template = $('#balance').html();
+		  rendered = Mustache.render(template, {theBalance: roundToTwo(todayBalance), theDate: new Date()});
+		  $('#target_balance').html(rendered);
+			template = $('#interestRate').html();
+		  rendered = Mustache.render(template, {theInterestRate: intRate * 100});
+		  $('#target_interestRate').html(rendered);
+		}
+
+		function renderChart() {
+			var chart = new CanvasJS.Chart("chartContainer", {
+				title:{
+					text: "Groei"
+				},
+				axisY:{
+        	title: "Rand"
+      	},
+				data: [              
+				{
+					// Change type to "doughnut", "line", "splineArea", etc.
+					type: "area",
+					dataPoints: dailyBalance(startDate, depAmount, intRate, daysSince(startDate))
+				},
+				{
+					// Change type to "doughnut", "line", "splineArea", etc.
+					type: "area",
+					dataPoints: dailyBalance(new Date(), todayBalance, intRate, 365*1-daysSince(startDate))
+				}
+				]
+			});
+			chart.render();
+		}
+
+		window.onload = function () {
+			renderHTML();
+			renderChart();
+		}
+
+</script>
+
+<!-- Moustache templates -->
+<script type="text/x-mustache" id="startbalance">
+  <h3>Begin Saldo</h3>
+  <h4>{{theStartDate | date}}</h4>
+	<h3>R {{theStartBalance}}</h3>
+</script>
+
+<script type="text/x-mustache" id="balance">
+  <h2>Saldo</h2>
+  <h4>{{theDate | date}}</h4>
+	<h1>R {{theBalance}}</h1>
+</script>
+
+<script type="text/x-mustache" id="interestRate">
+  <h3>Rentekoers</h3>
+  <h3>{{theInterestRate}}%</h3>
+</script>
+</head>
+
+<!-- Finally, the HTML -->
+<body>
+	<div class="jumbotron">
+      <div class="container">
+      	<div class="row">
+      		<div class="col-sm-8">
+		        <h2>Jannes se spaarrekening</h2>
+		        <p>Kyk hoe sy geld groei!</p>
+	      	</div>
+	      	<div class="col-sm-3">
+	        	<img class="img-responsive pull-right"  src="img/piggy.png">
+					</div>
+      	</div>
+      </div>
+  </div>
+  <div class="container">
+    <!-- Example row of columns -->
+    <div class="row bg-primary">
+      <div class="col-sm-4 text-center" id="target_startbalance"></div>
+      <div class="col-sm-4 text-center" id="target_balance"></div>
+      <div class="col-sm-4 text-center" id="target_interestRate"></div>
+    </div>
+    <div class="row">
+			<div id="chartContainer" style="height: 300px; width: 100%;"></div>
+    </div>
+  </div>
+
+	
+</body>
+</html>
